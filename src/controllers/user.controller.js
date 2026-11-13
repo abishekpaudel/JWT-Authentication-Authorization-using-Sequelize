@@ -8,7 +8,7 @@ if (!jwtSecret || jwtSecret.length < 32) {
 }
 
 const isEmail = (value) =>
-  typeof value === "string" && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+  typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 exports.signUp = async (req, res) => {
   const { name, email, password } = req.body || {};
