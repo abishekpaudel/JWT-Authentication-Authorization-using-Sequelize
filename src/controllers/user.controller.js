@@ -1,75 +1,73 @@
-const {User , Sequelize} = require("./../models");
-const bycryptjs = require("bcryptjs");
+const { User } = require("../models");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-exports.signUp = (req, res) => {
-
-    User.findOne({where : {email:req.body.email}}).then(result => {
-        if(result){
-            res.status(409).json({                      // 409 conflict
-                message : "Email already taken."
-            })
-        }
-        else{
-            bycryptjs.genSalt(10, (err, salt)=>{
-                bycryptjs.hash(req.body.password, salt, (err, hash) => {     //salt helps to add random string to end of the plain text password
-                    const user = {
-                        name : req.body.name,
-                        email : req.body.email,
-                        password : hash
-                    }
-                
-                    User.create(user).then(result => {
-                        res.status(201).json({
-                            message : "User registered Successfully" 
-                        })
-                    })
-                    .catch(error => {
-                        res.status(500).json({
-                            message : "Problem occured while registering user."
-                        })
-                    })
-                })
-            })
-        }
-    }).catch(error => {
-        res.status(500).json({
-            message : "Problem occured while registering user."
-        })
-    }) 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error("JWT_SECRET must be configured with at least 32 characters");
 }
 
-exports.login=(req, res) => {
-    User.findOne({where : {email:req.body.email}}).then(user => {
-        if(user === null){
-            res.status(401).json({          // 401 unauthirized user
-                message : "Invalid Email or Password."
-            })
-        }
-        else{
-            bycryptjs.compare(req.body.password, user.password, (err, result)=>{
-                if(result){
-                    const token = jwt.sign({
-                        email : user.email,
-                        userId : user.id
-                    }, 'secret', (err, token) => {
-                        res.status(200).json({          
-                            message : "Authentication Successfull.",
-                            token : token
-                        })
-                    })
-                }
-                else{
-                    res.status(401).json({          // 401 unauthirized user
-                        message : "Invalid Email or Password."
-                    })
-                }
-            })
-        }
+const isEmail = (value) =>
+  typeof value === "string" && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
 
-    }).catch(error => {
-        res.status(500).json({
-            message : "Problem occured while logging user."
-        })
-    })
-}
+exports.signUp = async (req, res) => {
+  const { name, email, password } = req.body || {};
+  if (
+    typeof name !== "string" ||
+    !name.trim() ||
+    !isEmail(email) ||
+    typeof password !== "string" ||
+    password.length < 8
+  ) {
+    return res.status(400).json({
+      message: "A name, valid email and password of at least 8 characters are required."
+    });
+  }
+
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await User.findOne({ where: { email: normalizedEmail } });
+
+    if (existing) {
+      return res.status(409).json({ message: "Email already taken." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword
+    });
+
+    return res.status(201).json({ message: "User registered successfully." });
+  } catch (_) {
+    return res.status(500).json({ message: "Unable to register user." });
+  }
+};
+
+exports.login = async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!isEmail(email) || typeof password !== "string") {
+    return res.status(400).json({ message: "Valid email and password required." });
+  }
+
+  try {
+    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    const token = jwt.sign(
+      { email: user.email, userId: user.id },
+      jwtSecret,
+      { expiresIn: "1h" }
+    );
+
+    return res.status(200).json({
+      message: "Authentication successful.",
+      token
+    });
+  } catch (_) {
+    return res.status(500).json({ message: "Unable to log in." });
+  }
+};
