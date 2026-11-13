@@ -1,42 +1,42 @@
 # JWT Authentication API — Node.js, Express and Sequelize
 
-A **learning/demo** REST API for user registration and login with Express, MySQL, Sequelize, bcrypt password hashing and JSON Web Tokens.
+A learning/demo API for user registration and login with Express, MySQL, Sequelize, bcrypt password hashing and JSON Web Tokens.
 
-## What's implemented
+## Endpoints
 
-- `POST /users/sign-in` — user registration (the original route is named `sign-in`, but it registers an account).
-- `POST /users/login` — verify credentials and return a signed JWT.
-- User model backed by MySQL/Sequelize.
-- Password hashing via `bcryptjs`.
+| Method | Route | Behavior |
+| --- | --- | --- |
+| POST | `/users/sign-in` | Register an account (historical route name) |
+| POST | `/users/login` | Verify credentials and return a JWT |
 
-## Quick look
+Example registration:
 
-```http
-POST /users/sign-in
-Content-Type: application/json
-
-{"name":"Example User","email":"example@example.com","password":"use-a-unique-password"}
-```
-
-```http
-POST /users/login
-Content-Type: application/json
-
-{"email":"example@example.com","password":"use-a-unique-password"}
+```bash
+curl -X POST http://localhost:3000/users/sign-in \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Example User","email":"example@example.com","password":"choose-a-unique-password"}'
 ```
 
 ## Local setup
 
-1. Install Node.js and MySQL.
+1. Install Node.js and start a local MySQL server.
 2. Run `npm install`.
-3. Create a local MySQL database.
-4. Configure the database connection and JWT signing secret **before running the application**. The original demo contains hardcoded development credentials and a JWT signing string; these must not be used in production.
-5. Run `npm start`. The original demo listens on port `3000`.
+3. Create an empty MySQL database (e.g. `jwt_demo`) and a **least-privilege** local database user.
+4. Copy `cp .env.example .env` and replace all placeholders. A `.env` file is **not loaded automatically** by this app.
+5. On macOS/Linux, load it into your shell with `set -a; source .env; set +a`.
+6. Run `npm start`. The demo listens on port `3000`.
 
-## Security limitations
+Required environment variables: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`. Optional: `DB_HOST` (defaults to `localhost`). `JWT_SECRET` must be at least 32 characters.
 
-This repository is **educational, not production-ready**. Before deploying it, move credentials and JWT secrets to environment variables, add request validation, review token expiration and error handling, use least-privilege database accounts, and add automated security tests. Do not reuse passwords or keys shown in historical Git commits. The sample routes should not be interpreted as a complete authentication platform.
+## Security improvements in this branch
 
-## Author
+- Replaces hardcoded database login and JWT signing secret with environment configuration.
+- Validates minimum registration inputs and hashes new passwords with bcrypt.
+- Returns generic error responses instead of exposing raw database errors.
+- Issues a JWT with a one-hour expiry.
 
-**Abishek Paudel** — [Portfolio](https://abishekpaudel.com.np) · [LinkedIn](https://www.linkedin.com/in/abishekpaudel/)
+## Before production
+
+This is **not** production-ready: add proper request rate limiting, database-level uniqueness, tests, token revocation/rotation, HTTPS, secure monitoring and a full dependency/security review. Historical commits may still contain development secrets; rotate any potentially live values. Never deploy with the example settings.
+
+**Abishek Paudel** · [Portfolio](https://abishekpaudel.com.np) · [LinkedIn](https://www.linkedin.com/in/abishekpaudel/)
